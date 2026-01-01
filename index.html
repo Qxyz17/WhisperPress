@@ -1,70 +1,34 @@
-/* WhisperPress Frontend - 静态版 */
-function gen64id(){
-  const arr = new Uint8Array(32);
-  crypto.getRandomValues(arr);
-  return Array.from(arr).map(b=>b.toString(16).padStart(2,'0')).join('');
-}
-const UID    = gen64id();                        // 64 位唯一 ID
-const ROOM   = location.hash.slice(1) || UID.slice(-8); // 默认用后 8 字符当房间名
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<title>WhisperPress · 端到端加密聊天</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/modern-normalize@2/modern-normalize.min.css"/>
+<style>
+body{font-family:system-ui, sans-serif;background:#0d0d0d;color:#e5e5e5;display:flex;flex-direction:column;height:100vh;margin:0}
+header{background:#111;padding:.6rem 1rem;font-size:1.2rem;font-weight:600;display:flex;align-items:center;gap:.5rem}
+#uid{font-family:monospace;background:#222;padding:.2rem .6rem;border-radius:4px;cursor:pointer}
+#screen{flex:1;overflow-y:auto;padding:1rem}
+#box{border-top:1px solid #333;display:flex;padding:.5rem;background:#111}
+#box input{flex:1;padding:.6rem;border:none;border-radius:4px 0 0 4px;background:#222;color:#eee}
+#box button{padding:.6rem 1.2rem;border:none;border-radius:0 4px 4px 0;background:#4caf50;color:#000;font-weight:600;cursor:pointer}
+.msg{margin:.3rem 0}
+.me{color:#4caf50; text-align:right;}  /* 绿色，自己发送的消息，右对齐 */
+.other{color:#e5e5e5; text-align:left;} /* 灰色，对方发送的消息，左对齐 */
+</style>
+</head>
+<body>
+<header>
+  WhisperPress · 房间：<span id="room"></span>
+  <span id="uid" title="点击复制64位ID"></span>
+</header>
+<div id="screen"></div>
+<div id="box">
+  <input id="inp" placeholder="输入消息，回车发送"/>
+  <button onclick="send()">发送</button>
+</div>
 
-document.getElementById('room').textContent = ROOM;
-const uidSpan = document.getElementById('uid');
-uidSpan.textContent = UID;
-uidSpan.onclick = ()=>{navigator.clipboard.writeText(UID);alert('已复制 64 位 ID\n粘贴到地址栏 # 后即可私聊');};
-
-let key;
-const enc = new TextEncoder(), dec = new TextDecoder();
-
-async function deriveKey(pwd){
-  const hash = await crypto.subtle.digest('SHA-256', enc.encode(pwd));
-  return crypto.subtle.importKey('raw', hash, {name:'AES-GCM'}, false, ['encrypt','decrypt']);
-}
-function buf2hex(ab){return Array.from(new Uint8Array(ab)).map(b=>b.toString(16).padStart(2,'0')).join('')}
-function hex2buf(hex){return new Uint8Array(hex.match(/.{1,2}/g).map(h=>parseInt(h,16)))}
-
-async function encrypt(txt){
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, enc.encode(txt));
-  return {iv:buf2hex(iv), ct:buf2hex(new Uint8Array(ct))};
-}
-async function decrypt({iv, ct}){
-  const plain = await crypto.subtle.decrypt({name:'AES-GCM', iv:hex2buf(iv)}, key, hex2buf(ct));
-  return dec.decode(plain);
-}
-
-function append(txt, sender='me'){ // sender: 'me' 或 'other'
-  const div = document.createElement('div');
-  div.className = 'msg' + (sender === 'me' ? ' me' : ' other');
-  div.textContent = txt;
-  screen.appendChild(div);
-  screen.scrollTop = 1e9;
-}
-
-async function send(){
-  const txt = inp.value.trim();
-  if(!txt)return;
-  const pkg = await encrypt(txt);
-
-  // 保存消息到 localStorage，包含发送者信息
-  let messages = JSON.parse(localStorage.getItem(ROOM)) || [];
-  messages.push({pkg, sender: 'me'}); // sender: 'me' 表示自己发送
-  localStorage.setItem(ROOM, JSON.stringify(messages));
-
-  append(txt, 'me');
-  inp.value='';
-}
-
-// 读取存储的消息并解密显示
-async function loadMessages(){
-  let messages = JSON.parse(localStorage.getItem(ROOM)) || [];
-  for (const {pkg, sender} of messages) {
-    append(await decrypt(pkg), sender);
-  }
-}
-
-inp.onkeyup = e => { if (e.key === 'Enter') send(); };
-
-deriveKey(ROOM).then(k => {
-  key = k;
-  loadMessages();
-});
+<script src="whisper.js" type="module"></script>
+</body>
+</html>
