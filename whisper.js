@@ -61,7 +61,6 @@ async function loadMessages(){
     append(await decrypt(pkg), sender);
   }
 }
-
 inp.onkeyup = e => { if (e.key === 'Enter') send(); };
 
 deriveKey(ROOM).then(k => {
