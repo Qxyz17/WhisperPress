@@ -32,9 +32,9 @@ async function decrypt({iv, ct}){
   return dec.decode(plain);
 }
 
-function append(txt, me=false){
+function append(txt, sender='me'){ // sender: 'me' 或 'other'
   const div = document.createElement('div');
-  div.className = 'msg' + (me?' me':'');
+  div.className = 'msg' + (sender === 'me' ? ' me' : ' other');
   div.textContent = txt;
   screen.appendChild(div);
   screen.scrollTop = 1e9;
@@ -45,20 +45,20 @@ async function send(){
   if(!txt)return;
   const pkg = await encrypt(txt);
 
-  // 保存消息到 localStorage
+  // 保存消息到 localStorage，包含发送者信息
   let messages = JSON.parse(localStorage.getItem(ROOM)) || [];
-  messages.push(pkg);
+  messages.push({pkg, sender: 'me'}); // sender: 'me' 表示自己发送
   localStorage.setItem(ROOM, JSON.stringify(messages));
 
-  append(txt, true);
+  append(txt, 'me');
   inp.value='';
 }
 
 // 读取存储的消息并解密显示
 async function loadMessages(){
   let messages = JSON.parse(localStorage.getItem(ROOM)) || [];
-  for (const pkg of messages) {
-    append(await decrypt(pkg));
+  for (const {pkg, sender} of messages) {
+    append(await decrypt(pkg), sender);
   }
 }
 
